@@ -1,48 +1,50 @@
-name: 🚀 Build from My Fork (Owner Method)
+name: 🏗️ PREBUILT_A15-6.6-MOD
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+
+  PREBUILT_A15_6_6:
     runs-on: ubuntu-latest
     steps:
-      - name: 🧹 Free Disk Space
-        uses: jlumbroso/free-disk-space@v1.3.1
-
-      - name: 👨‍🔧 Setup Build Environment
+      - name: "👨‍🔧 Setup build environment"
+        run: curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
+      
+      - name: "⏳ Clone Repo, Sync & Build."
         run: |
-          sudo apt update
-          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
-          curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
-
-      - name: ⏳ Sync Source (Owner Strategy)
-        run: |
-          mkdir kernel_workspace && cd kernel_workspace
-          repo init -u https://github.com/omranhydar2009-lgtm/aosp_kernel_gki_builder -b main --depth=1
+          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
           repo sync -c -j$(nproc) --force-sync --no-clone-bundle
-          
           cd common
           git fetch --tags
           git checkout android15-6.6-2025-02_r1
           cd ..
+          tools/bazel build --config=fast //common:kernel_aarch64_dist
 
-      - name: 🔨 Build Kernel (Owner Command)
-        working-directory: kernel_workspace
-        run: |
-          chmod +x tools/bazel
-          ./tools/bazel build --config=fast //common:kernel_aarch64_dist
-
-      - name: 📦 Export Image
-        run: |
-          mkdir -p output
-          if [ -d "kernel_workspace/out/android15-6.6/dist" ]; then
-            cp kernel_workspace/out/android15-6.6/dist/Image ./output/Image
-          else
-            find kernel_workspace/out/ -name Image -exec cp {} ./output/Image \;
-          fi
-
-      - name: 📤 Upload Artifact
+      - name: "📤 Upload Image Artifact"
         uses: actions/upload-artifact@v4
         with:
-          name: GKI-6.6.66-Owner-Method
-          path: output/Image
+          name: Image-GKI-6.6
+          path: out/android15-6.6/dist/Image
+
+  PREBUILT_A15_6_6_KSU:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "👨‍🔧 Setup build environment"
+        run: curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
+      
+      - name: "⏳ Clone Repo, Sync & Build (KSU)."
+        run: |
+          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
+          repo sync -c -j$(nproc) --force-sync --no-clone-bundle
+          cd common
+          git fetch --tags
+          git checkout android15-6.6-2025-02_r1
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+          cd ..
+          tools/bazel build --config=fast //common:kernel_aarch64_dist
+
+      - name: "📤 Upload Image KSU Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: Image-GKI-6.6-KSU
+          path: out/android15-6.6/dist/Image
