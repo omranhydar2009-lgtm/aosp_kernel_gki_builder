@@ -1,64 +1,41 @@
-name: 🏗️ PREBUILT_A15-6.6-FIXED
+name: 🚀 GKI_BUILD_BY_VIDEO_METHOD
 on:
   workflow_dispatch:
 
 jobs:
-  PREBUILT_A15_6_6:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: "👨‍🔧 Setup build environment"
-        run: curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
-      
-      - name: "⏳ Clone, Sync & Fix Workspace"
+      - name: 🧹 Free Disk Space
+        uses: jlumbroso/free-disk-space@v1.3.1
+
+      - name: 👨‍🔧 Setup Environment
         run: |
-          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
+          sudo apt update
+          sudo apt install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev libncurses5-dev x11proto-core-dev libxml2-utils xsltproc unzip python3 bc llvm lld clang lz4 repo
+          curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
+
+      - name: ⏳ Repo Init & Sync
+        run: |
+          mkdir gki_kernel && cd gki_kernel
+          repo init -u https://android.googlesource.com/kernel/manifest -b android15-6.6-2025-02 --depth=1
           repo sync -c -j$(nproc) --force-sync --no-clone-bundle
-          
-          cd common
-          git fetch --tags
-          git checkout android15-6.6-2025-02_r1
-          cd ..
-          
           mkdir -p external/bazelbuild-rules_shell
-          
           chmod +x tools/bazel
           chmod +x build/bazel.sh
 
-      - name: "🔨 Build Kernel"
+      - name: 🔨 Build Kernel
+        working-directory: gki_kernel
         run: |
-          ./tools/bazel build --config=fast //common:kernel_aarch64_dist
+          LTO=thin ./tools/bazel build --config=fast //common:kernel_aarch64_dist
 
-      - name: "📤 Upload Image Artifact"
+      - name: 📦 Export Image
+        run: |
+          mkdir -p output
+          cp gki_kernel/out/android15-6.6/dist/Image ./output/Image
+
+      - name: 📤 Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Image-GKI-6.6-Fixed
-          path: out/android15-6.6/dist/Image
-
-  PREBUILT_A15_6_6_KSU:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "👨‍🔧 Setup build environment"
-        run: curl https://raw.githubusercontent.com/akhilnarang/scripts/master/setup/android_build_env.sh | bash -
-      
-      - name: "⏳ Clone, Sync & KSU Setup"
-        run: |
-          repo init -u https://gitlab.com/xprateek/kernel_manifest -b common-android15-6.6 --depth=1
-          repo sync -c -j$(nproc) --force-sync --no-clone-bundle
-          
-          cd common
-          git fetch --tags
-          git checkout android15-6.6-2025-02_r1
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-          cd ..
-          
-          mkdir -p external/bazelbuild-rules_shell
-          chmod +x tools/bazel
-
-      - name: "🔨 Build Kernel (KSU)"
-        run: ./tools/bazel build --config=fast //common:kernel_aarch64_dist
-
-      - name: "📤 Upload Image KSU Artifact"
-        uses: actions/upload-artifact@v4
-        with:
-          name: Image-GKI-6.6-KSU-Fixed
-          path: out/android15-6.6/dist/Image
+          name: GKI-6.6.66-VideoMethod
+          path: output/Image
